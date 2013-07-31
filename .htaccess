@@ -1,0 +1,8 @@
+RewriteEngine On
+
+RewriteRule webclient/bla.html update.php [QSA]
+RewriteRule webclient/signedon.html update.php [QSA]
+
+<Files update.log>
+	deny from all
+</Files>
