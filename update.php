@@ -6,9 +6,8 @@ function db_query($query, $parameters = array()) {
 		$error = $db->errorInfo();
 		db_error($error[2], debug_backtrace(), $query, $parameters);
 	}
-	// see https://bugs.php.net/bug.php?id=40740 and https://bugs.php.net/bug.php?id=44639
 	foreach($parameters as $key => $value) {
-		$stmt->bindValue($key+1, $value, is_numeric($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+		$stmt->bindValue($key+1, $value);
 	}
 	if(!$stmt->execute()) {
 		$error = $stmt->errorInfo();
@@ -68,25 +67,28 @@ if(isset($_REQUEST['TZOName'])) {
 else if(isset($_REQUEST['system']) && $_REQUEST['system'] == 'custom') {
 	$host = $_REQUEST['hostname'];
 	$ip = $_REQUEST['myip'];
-	$username = $_SERVER['PHP_AUTH_USER'];
-	$password = $_SERVER['PHP_AUTH_PW'];
+	$username = $_REQUEST['username'];
+	$password = $_REQUEST['password'];
+#	$username = $_SERVER['PHP_AUTH_USER'];
+#	$password = $_SERVER['PHP_AUTH_PW'];
+	echo "$host $ip $username $password";
 }
 else {
-	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request');
+#	header('HTTP/1.0 400 Bad Request');
+	die('Bad Request 1');
 }
 
 if(!preg_match('/[a-z]+/', $host)) {
-	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request');
+#	header('HTTP/1.0 400 Bad Request');
+	die('Bad Request 2');
 }
 if(!preg_match('/[a-zA-Z0-9]+/', $username)) {
-	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request');
+	header('HTTP/1.0 401 Unauthorized' . $username);
+	die('Bad Request 3');
 }
 if(!preg_match('/[a-zA-Z0-9]+/', $password)) {
-	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request');
+	header('HTTP/1.0 401 Unauthorized');
+	die('Bad Request 4');
 }
 $source_ip = $_SERVER['REMOTE_ADDR'];
 if($ip == '') {
