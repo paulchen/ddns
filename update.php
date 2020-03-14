@@ -63,10 +63,12 @@ if(isset($_REQUEST['TZOName'])) {
 	$username = $_REQUEST['Email'];
 	$password = $_REQUEST['TZOKey'];
 	$ip = $_REQUEST['IPAddress'];
+	$ip6 = isset($_REQUEST['IP6Address']) ? $_REQUEST['IP6Address'] : '';
 }
 else if(isset($_REQUEST['system']) && $_REQUEST['system'] == 'custom') {
 	$host = $_REQUEST['hostname'];
 	$ip = $_REQUEST['myip'];
+	$ip6 = isset($_REQUEST['myip6']) ? $_REQUEST['myip6'] : '';
 	$username = $_REQUEST['username'];
 	$password = $_REQUEST['password'];
 #	$username = $_SERVER['PHP_AUTH_USER'];
@@ -114,10 +116,14 @@ if(count($data) != 1) {
 }
 $host_id = $data[0]['id'];
 
-db_query('INSERT INTO updates (host, user, source_ip, new_ip) VALUES (?, ?, ?, ?)', array($host_id, $user_id, $source_ip, $ip));
-db_query('INSERT INTO current (host, ip) VALUES (?, ?) ON DUPLICATE KEY UPDATE ip = ?', array($host_id, $ip, $ip));
+db_query('INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, ?, ?)', array($host_id, $user_id, $source_ip, $ip, $ip6));
+db_query('INSERT INTO current (host, ip, ip6) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE ip = ?, ip6 = ?', array($host_id, $ip, $ip6, $ip, $ip6));
 
-$call = "#!/bin/bash\necho -e \"update delete $host.ddns.rueckgr.at A\\nupdate add $host.ddns.rueckgr.at 60 A $ip\\nsend\"|nsupdate\n";
+$call = "#!/bin/bash\necho -e \"update delete $host.ddns.rueckgr.at A\\nupdate delete $host.ddns.rueckgr.at AAAA\\nupdate add $host.ddns.rueckgr.at 60 A $ip\\n";
+if($ip6) {
+	$call .= "update add $host.ddns.rueckgr.at 60 AAAA $ip6\\n";
+}
+$call .= "send\"|nsupdate\n";
 $filename = tempnam('/tmp','nsupdate_');
 file_put_contents($filename, $call);
 chmod($filename, 0700);

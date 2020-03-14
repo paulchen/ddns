@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `accounts` (
 CREATE TABLE IF NOT EXISTS `current` (
   `host` int(11) NOT NULL,
   `ip` text NOT NULL,
+  `ip6` text NOT NULL,
   PRIMARY KEY (`host`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS `updates` (
   `user` int(11) NOT NULL,
   `source_ip` text NOT NULL,
   `new_ip` text NOT NULL,
+  `new_ip6` text NOT NULL,
   PRIMARY KEY (`id`),
   KEY `host` (`host`,`user`),
   KEY `user` (`user`)
