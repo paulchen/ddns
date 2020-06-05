@@ -1,5 +1,8 @@
 <?php
 # TODO introduce logging
+#
+# TODO introduce hook script for dhcpcd
+
 function db_query($query, $parameters = array()) {
 	global $db;
 
