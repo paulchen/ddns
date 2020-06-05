@@ -120,9 +120,9 @@ db_query('INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?
 db_query('INSERT INTO current (host, ip, ip6) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE ip = ?, ip6 = ?', array($host_id, $ip, $ip6, $ip, $ip6));
 
 $call = "#!/bin/bash\necho -e \"update delete $host.ddns.rueckgr.at A\\nupdate delete $host.ddns.rueckgr.at AAAA\\nupdate add $host.ddns.rueckgr.at 60 A $ip\\n";
-if($ip6) {
-	$call .= "update add $host.ddns.rueckgr.at 60 AAAA $ip6\\n";
-}
+#if($ip6) {
+#	$call .= "update add $host.ddns.rueckgr.at 60 AAAA $ip6\\n";
+#}
 $call .= "send\"|nsupdate\n";
 $filename = tempnam('/tmp','nsupdate_');
 file_put_contents($filename, $call);
