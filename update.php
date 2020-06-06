@@ -91,11 +91,20 @@ else if(isset($_REQUEST['system']) && $_REQUEST['system'] == 'custom') { # TODO 
 			$ip = $_SERVER['REMOTE_ADDR'];
 		}
 	}
-	# TODO make HTTP basic auth work again
-	$username = $_REQUEST['username'];
-	$password = $_REQUEST['password'];
-#	$username = $_SERVER['PHP_AUTH_USER'];
-#	$password = $_SERVER['PHP_AUTH_PW'];
+
+	if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+		$username = $_SERVER['PHP_AUTH_USER'];
+		$password = $_SERVER['PHP_AUTH_PW'];
+	}
+	else if(isset($_REQUEST['username']) && isset($_REQUEST['password'])) {	
+		$username = $_REQUEST['username'];
+		$password = $_REQUEST['password'];
+	}
+	else {
+		header('WWW-Authenticate: Basic realm="DDNS"');
+		header('HTTP/1.1 401 Unauthorized');
+		die('Unauthorized');
+	}
 	echo "$host $ip $ip6 $username $password";
 }
 else {
