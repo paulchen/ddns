@@ -121,10 +121,12 @@ if(!preg_match('/[a-zA-Z0-9]+/', $password)) {
 	die('Bad Request 4');
 }
 $source_ip = $_SERVER['REMOTE_ADDR'];
+# TODO remove this? possible ipv4/ipv6 mixup
 if(!$custom && $ip) {
 	$ip = $source_ip;
 }
 
+# TODO ^ and $ missing
 if($ip && !preg_match('/[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]/', $ip)) {
 	header('HTTP/1.0 400 Bad Request');
 	die('Bad Request');
@@ -163,7 +165,7 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv4 = 1", array($host_id));
 	foreach($data as $row) {
-		update_host_ipv4($data['to'], $user_id, $source_ip, $ip);
+		update_host_ipv4($row['to'], $user_id, $source_ip, $ip);
 	}
 }
 
