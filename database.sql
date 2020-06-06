@@ -74,6 +74,42 @@ CREATE TABLE IF NOT EXISTS `updates` (
   KEY `user` (`user`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
 
+-- --------------------------------------------------------
+
+--
+-- Tabellenstruktur für Tabelle `update_dependency`
+--
+
+CREATE TABLE `update_dependency` (
+  `id` int(11) NOT NULL,
+  `from` int(11) NOT NULL,
+  `to` int(11) NOT NULL,
+  `ipv4` tinyint(1) NOT NULL DEFAULT 0,
+  `ipv6` tinyint(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
+
+--
+-- Indizes der exportierten Tabellen
+--
+
+--
+-- Indizes für die Tabelle `update_dependency`
+--
+ALTER TABLE `update_dependency`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `from` (`from`),
+  ADD KEY `to` (`to`);
+
+--
+-- AUTO_INCREMENT für exportierte Tabellen
+--
+
+--
+-- AUTO_INCREMENT für Tabelle `update_dependency`
+--
+ALTER TABLE `update_dependency`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
 --
 -- Constraints der exportierten Tabellen
 --
@@ -90,4 +126,11 @@ ALTER TABLE `current`
 ALTER TABLE `updates`
   ADD CONSTRAINT `updates_ibfk_1` FOREIGN KEY (`host`) REFERENCES `hosts` (`id`),
   ADD CONSTRAINT `updates_ibfk_2` FOREIGN KEY (`user`) REFERENCES `accounts` (`id`);
+
+--
+-- Constraints der Tabelle `update_dependency`
+--
+ALTER TABLE `update_dependency`
+  ADD CONSTRAINT `update_dependency_ibfk_1` FOREIGN KEY (`from`) REFERENCES `hosts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `update_dependency_ibfk_2` FOREIGN KEY (`to`) REFERENCES `hosts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
