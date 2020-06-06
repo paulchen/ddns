@@ -1,0 +1,45 @@
+# vim: set ft=sh
+
+# symlink from /lib/dhcpcd/dhcpcd-hooks
+
+check_parameter() {
+	if [ -z "$2" ]; then
+		syslog err "[ddns] Value $1 not set in /etc/ddns.conf"
+		exit 0
+	fi
+}
+
+syslog info "[ddns] Receiving event $reason"
+
+if [ ! -f "/etc/ddns.conf" ]; then
+	syslog err "[ddns] /etc/ddns.conf not found, not doing anything"
+	exit 0
+fi
+
+. "/etc/ddns.conf"
+
+check_parameter DDNS_USERNAME "$DDNS_USERNAME"
+check_parameter DDNS_PASSWORD "$DDNS_PASSWORD"
+check_parameter DDNS_HOSTNAME "$DDNS_HOSTNAME"
+check_parameter DDNS_ENDPOINT "$DDNS_ENDPOINT"
+
+URL="$DDNS_ENDPOINT/update.php?system=custom&hostname=$DDNS_HOSTNAME"
+
+case "$reason" in
+BOUND|RENEW|REBIND|REBOOT|INFORM)
+	syslog info "[ddns] Updating IPv4 address"
+	wget -4 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
+		syslog info "[ddns] IPv4 update successful" ||
+		syslog err "[ddns] Error executing IPv4 update"
+	echo ''
+	break
+	;;
+BOUND6|RENEW6|REBIND6|REBOOT6|INFORM6)
+	syslog info "[ddns] Updating IPv6 address"
+	wget -6 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
+		syslog info "[ddns] IPv6 update successful" ||
+		syslog err "[ddns] Error executing IPv6 update"
+	echo ''
+	break
+	;;
+esac
