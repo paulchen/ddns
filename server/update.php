@@ -1,6 +1,4 @@
 <?php
-# TODO introduce logging
-#
 # TODO introduce permission system to make sure everyone can only update their own hosts
 
 require_once(dirname(__FILE__) . '/common.php');
@@ -39,7 +37,9 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, ?, '')", array($host_id, $user_id, $source_ip, $ip));
 	db_query("INSERT INTO current (host, ip, ip6) VALUES (?, ?, '') ON DUPLICATE KEY UPDATE ip = ?", array($host_id, $ip, $ip));
 
-	update_bind(get_host_by_id($host_id), 'A', $ip);
+	$host = get_host_by_id($host_id);
+	syslog(LOG_INFO, "DDNS update of host $host record A to $ip");
+	update_bind($host, 'A', $ip6);
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv4 = 1", array($host_id));
 	foreach($data as $row) {
@@ -55,7 +55,9 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, '', ?)", array($host_id, $user_id, $source_ip, $ip6));
 	db_query("INSERT INTO current (host, ip, ip6) VALUES (?, '', ?) ON DUPLICATE KEY UPDATE ip6 = ?", array($host_id, $ip6, $ip6));
 
-	update_bind(get_host_by_id($host_id), 'AAAA', $ip6);
+	$host = get_host_by_id($host_id);
+	syslog(LOG_INFO, "DDNS update of host $host record AAAA to $ip6");
+	update_bind($host, 'AAAA', $ip6);
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv6 = 1", array($host_id));
 	foreach($data as $row) {
@@ -93,22 +95,30 @@ else if(isset($_REQUEST['username']) && isset($_REQUEST['password'])) {
 	$password = $_REQUEST['password'];
 }
 
+syslog(LOG_DEBUG, "Incoming DDNS request: username=$username, ip=$ip, ip6=$ip6, host=$host");
+
 if(!$username && !$password) {
+	syslog(LOG_DEBUG, "DDNS request unauthorized");
 	error_unauthorized();
 }
 
 if(!validate_ip($ip, $ip6)) {
+	syslog(LOG_DEBUG, "Invalid IP address in DDNS request");
 	error_bad_request();
 }
 if (!($host_id = validate_host($host))) {
+	syslog(LOG_DEBUG, "Invalid host in DDNS request");
 	error_bad_request();
 }
 if (!($user_id = validate_user($username, $password))) {
+	syslog(LOG_DEBUG, "DDNS request unauthorized");
 	error_unauthorized();
 }
 
 update_host_ipv4($host_id, $user_id, $source_ip, $ip);
 update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
+
+syslog(LOG_DEBUG, "DDNS request successfully processed");
 
 http_response_code(200);
 die('OK');
