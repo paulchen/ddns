@@ -2,8 +2,6 @@
 # TODO introduce logging
 #
 # TODO introduce permission system to make sure everyone can only update their own hosts
-#
-# TODO server-side CLI script for updating IP addresses
 
 require_once(dirname(__FILE__) . '/common.php');
 
@@ -26,53 +24,6 @@ function error_bad_request() {
 function error_not_found() {
 	http_response_code(404);
 	die('Not Found');
-}
-
-function validate_host($host) {
-	if(!preg_match('/^[a-z]+$/', $host)) {
-		error_bad_request();
-	}
-	$data = db_query('SELECT id FROM hosts WHERE name = ?', array($host));
-	if(count($data) != 1) {
-		error_not_found();
-	}
-	return $data[0]['id'];
-}
-
-function validate_ipv4($ip) {
-	if(!$ip) {
-		return;
-	}
-
-	if(!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-		error_bad_request();
-	}
-}
-
-function validate_ipv6($ip6) {
-	if(!$ip6) {
-		return;
-	}
-
-	if(!filter_var($ip6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-		error_bad_request();
-	}
-}
-
-function validate_ip($ip, $ip6) {
-	if(!$ip && !$ip6) {
-		error_bad_request();
-	}
-	validate_ipv4($ip);
-	validate_ipv6($ip6);
-}
-
-function validate_user($username, $password) {
-	$data = db_query('SELECT id, password FROM accounts WHERE username = ? AND active = 1', array($username));
-	if(count($data) != 1 || !password_verify($password, $data[0]['password'])) {
-		error_unauthorized();
-	}
-	return $data[0]['id'];
 }
 
 function get_host_by_id($host_id) {
@@ -146,9 +97,15 @@ if(!$username && !$password) {
 	error_unauthorized();
 }
 
-validate_ip($ip, $ip6);
-$host_id = validate_host($host);
-$user_id = validate_user($username, $password);
+if(!validate_ip($ip, $ip6)) {
+	error_bad_request();
+}
+if (!($host_id = validate_host($host))) {
+	error_bad_request();
+}
+if (!($user_id = validate_user($username, $password))) {
+	error_unauthorized();
+}
 
 update_host_ipv4($host_id, $user_id, $source_ip, $ip);
 update_host_ipv6($host_id, $user_id, $source_ip, $ip6);

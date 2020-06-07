@@ -44,6 +44,56 @@ function db_error($error, $stacktrace, $query, $parameters) {
 	error_internal();
 }
 
+function validate_host($host) {
+	if(!preg_match('/^[a-z]+$/', $host)) {
+		return false;
+	}
+	$data = db_query('SELECT id FROM hosts WHERE name = ?', array($host));
+	if(count($data) != 1) {
+		return false;
+	}
+	return $data[0]['id'];
+}
+
+function validate_ipv4($ip) {
+	if(!$ip) {
+		return true;
+	}
+
+	if(!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		return false;
+	}
+
+	return true;
+}
+
+function validate_ipv6($ip6) {
+	if(!$ip6) {
+		return true;
+	}
+
+	if(!filter_var($ip6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+		return false;
+	}
+
+	return true;
+}
+
+function validate_ip($ip, $ip6) {
+	if(!$ip && !$ip6) {
+		error_bad_request();
+	}
+	return validate_ipv4($ip) && validate_ipv6($ip6);
+}
+
+function validate_user($username, $password) {
+	$data = db_query('SELECT id, password FROM accounts WHERE username = ? AND active = 1', array($username));
+	if(count($data) != 1 || !password_verify($password, $data[0]['password'])) {
+		error_unauthorized();
+	}
+	return $data[0]['id'];
+}
+
 function update_bind($host, $record, $ip) {
 	$call = "#!/bin/bash\n";
 	$call .= "echo -e \"";
