@@ -1,7 +1,9 @@
 <?php
 # TODO introduce logging
 #
-# TODO introduce hook script for dhcpcd
+# TODO introduce permission system to make sure everyone can only update their own hosts
+#
+# TODO server-side CLI script for updating IP addresses
 
 function db_query($query, $parameters = array()) {
 	global $db;
@@ -57,7 +59,6 @@ require_once(dirname(__FILE__) . '/config.php');
 $db = new PDO("mysql:dbname=$db_name;host=$db_host;port=$db_port", $db_username, $db_password);
 db_query('SET NAMES utf8');
 
-$custom = false;
 $ip = '';
 $ip6 = '';
 # TODO get rid of this?
@@ -82,7 +83,6 @@ else if(isset($_REQUEST['system']) && $_REQUEST['system'] == 'custom') { # TODO 
 		$ip6 = isset($_REQUEST['myip6']) ? $_REQUEST['myip6'] : '';
 	}
 	else {
-		$custom = true;
 		# https://stackoverflow.com/questions/1448871/how-to-know-which-version-of-the-internet-protocol-ip-a-client-is-using-when-c
 		if(filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
 			$ip6 = $_SERVER['REMOTE_ADDR'];
@@ -130,10 +130,6 @@ if(!preg_match('/[a-zA-Z0-9]+/', $password)) {
 	die('Bad Request 4');
 }
 $source_ip = $_SERVER['REMOTE_ADDR'];
-# TODO remove this? possible ipv4/ipv6 mixup
-if(!$custom && $ip) {
-	$ip = $source_ip;
-}
 
 # TODO ^ and $ missing
 if($ip && !preg_match('/[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]/', $ip)) {
@@ -157,10 +153,7 @@ if(count($data) != 1) {
 $host_id = $data[0]['id'];
 
 update_host_ipv4($host_id, $user_id, $source_ip, $ip);
-# TODO remove this exception
-if($username != 'Thonie6o') {
-	update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
-}
+update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
 
 function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	if(!$ip) {
