@@ -28,14 +28,10 @@ function db_query($query, $parameters = array()) {
 }
 
 function db_error($error, $stacktrace, $query, $parameters) {
-#	print_r($error);
-#	print_r($stacktrace);
-	// TODO
-	/*
-	global $config;
+	global $error_mails_from, $error_mails_rcpt;
 
-	$report_email = $config['error_mails_rcpt'];
-	$email_from = $config['error_mails_from'];
+	$report_email = $error_mails_rcpt;
+	$email_from = $error_mails_from;
 
 	ob_start();
 	require(dirname(__FILE__) . '/mail_db_error.php');
@@ -46,114 +42,80 @@ function db_error($error, $stacktrace, $query, $parameters) {
 	$headers .= "Content-Type: text/plain; charset = \"UTF-8\";\n";
 	$headers .= "Content-Transfer-Encoding: 8bit\n";
 
-	$subject = 'Database error';
+	$subject = 'DDNS :: Database error';
 
 	mail($report_email, $subject, $message, $headers);
-	*/
-#	header('HTTP/1.1 500 Internal Server Error');
-	echo "A database error has just occurred. Please don't freak out, the administrator has already been notified.";
-	die();
+
+	error_internal();
 }
 
-require_once(dirname(__FILE__) . '/config.php');
-$db = new PDO("mysql:dbname=$db_name;host=$db_host;port=$db_port", $db_username, $db_password);
-db_query('SET NAMES utf8');
-
-$ip = '';
-$ip6 = '';
-# TODO get rid of this?
-if(isset($_REQUEST['TZOName'])) {
-	foreach(array('TZOName', 'Email', 'TZOKey', 'IPAddress') as $key) {
-		if(!isset($_REQUEST[$key])) {
-			header('HTTP/1.0 400 Bad Request');
-			die();
-		}
-	}
-
-	$host = $_REQUEST['TZOName'];
-	$username = $_REQUEST['Email'];
-	$password = $_REQUEST['TZOKey'];
-	$ip = $_REQUEST['IPAddress'];
-	$ip6 = isset($_REQUEST['IP6Address']) ? $_REQUEST['IP6Address'] : '';
-}
-else if(isset($_REQUEST['system']) && $_REQUEST['system'] == 'custom') { # TODO get rid of 'system' parameter?
-	$host = $_REQUEST['hostname'];
-	if(isset($_REQUEST['myip'])) {
-		$ip = $_REQUEST['myip'];
-		$ip6 = isset($_REQUEST['myip6']) ? $_REQUEST['myip6'] : '';
-	}
-	else {
-		# https://stackoverflow.com/questions/1448871/how-to-know-which-version-of-the-internet-protocol-ip-a-client-is-using-when-c
-		if(filter_var($_SERVER['REMOTE_ADDR'], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-			$ip6 = $_SERVER['REMOTE_ADDR'];
-		}
-		else {
-			$ip = $_SERVER['REMOTE_ADDR'];
-		}
-	}
-
-	if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
-		$username = $_SERVER['PHP_AUTH_USER'];
-		$password = $_SERVER['PHP_AUTH_PW'];
-	}
-	else if(isset($_REQUEST['username']) && isset($_REQUEST['password'])) {	
-		$username = $_REQUEST['username'];
-		$password = $_REQUEST['password'];
-	}
-	else {
-		header('WWW-Authenticate: Basic realm="DDNS"');
-		header('HTTP/1.1 401 Unauthorized');
-		die('Unauthorized');
-	}
-	echo "$host $ip $ip6 $username $password";
-}
-else {
-	# TODO
-#	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request 1');
+function error_internal() {
+	http_response_code(500);
+	die('Internal Server Error');
 }
 
-if(!$ip && !$ip6) {
-	// TODO wtf
+function error_unauthorized() {
+	header('WWW-Authenticate: Basic realm="DDNS"');
+	http_response_code(401);
+	die('Unauthorized');
 }
-if(!preg_match('/[a-z]+/', $host)) {
-	# TODO wtf
-#	header('HTTP/1.0 400 Bad Request');
-	die('Bad Request 2');
-}
-if(!preg_match('/[a-zA-Z0-9]+/', $username)) {
-	header('HTTP/1.0 401 Unauthorized' . $username);
-	die('Bad Request 3');
-}
-if(!preg_match('/[a-zA-Z0-9]+/', $password)) {
-	header('HTTP/1.0 401 Unauthorized');
-	die('Bad Request 4');
-}
-$source_ip = $_SERVER['REMOTE_ADDR'];
 
-# TODO ^ and $ missing
-if($ip && !preg_match('/[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]\.[0-2]?[0-9]?[0-9]/', $ip)) {
-	header('HTTP/1.0 400 Bad Request');
+function error_bad_request() {
+	http_response_code(400);
 	die('Bad Request');
 }
-# TODO validate $ip6
 
-$data = db_query('SELECT id, password FROM accounts WHERE username = ? AND active = 1', array($username));
-if(count($data) != 1 || !password_verify($password, $data[0]['password'])) {
-	header('HTTP/1.0 403 Forbidden');
-	die('Forbidden');
+function error_not_found() {
+	http_response_code(404);
+	die('Not Found');
 }
-$user_id = $data[0]['id'];
 
-$data = db_query('SELECT id FROM hosts WHERE name = ?', array($host));
-if(count($data) != 1) {
-	header('HTTP/1.0 404 Not found');
-	die('Not found');
+function validate_host($host) {
+	if(!preg_match('/^[a-z]+$/', $host)) {
+		error_bad_request();
+	}
+	$data = db_query('SELECT id FROM hosts WHERE name = ?', array($host));
+	if(count($data) != 1) {
+		error_not_found();
+	}
+	return $data[0]['id'];
 }
-$host_id = $data[0]['id'];
 
-update_host_ipv4($host_id, $user_id, $source_ip, $ip);
-update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
+function validate_ipv4($ip) {
+	if(!$ip) {
+		return;
+	}
+
+	if(!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		error_bad_request();
+	}
+}
+
+function validate_ipv6($ip6) {
+	if(!$ip6) {
+		return;
+	}
+
+	if(!filter_var($ip6, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+		error_bad_request();
+	}
+}
+
+function validate_ip($ip, $ip6) {
+	if(!$ip && !$ip6) {
+		error_bad_request();
+	}
+	validate_ipv4($ip);
+	validate_ipv6($ip6);
+}
+
+function validate_user($username, $password) {
+	$data = db_query('SELECT id, password FROM accounts WHERE username = ? AND active = 1', array($username));
+	if(count($data) != 1 || !password_verify($password, $data[0]['password'])) {
+		error_unauthorized();
+	}
+	return $data[0]['id'];
+}
 
 function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	if(!$ip) {
@@ -203,7 +165,51 @@ function update_bind($host_id, $record, $ip) {
 	unlink($filename);
 }
 
-header('HTTP/1.0 200 OK');
-# TODO improve this
-die("TZOName=$host IPAddress=$ip Expiration=12/31/2020");
+require_once(dirname(__FILE__) . '/config.php');
+$db = new PDO("mysql:dbname=$db_name;host=$db_host;port=$db_port", $db_username, $db_password);
+db_query('SET NAMES utf8');
+
+$source_ip = $_SERVER['REMOTE_ADDR'];
+
+$ip = '';
+$ip6 = '';
+$host = isset($_REQUEST['hostname']) ? $_REQUEST['hostname'] : '';
+$username = '';
+$password = '';
+if(isset($_REQUEST['myip']) || isset($_REQUEST['myip6'])) {
+	$ip = isset($_REQUEST['myip']) ? $_REQUEST['myip'] : '';
+	$ip6 = isset($_REQUEST['myip6']) ? $_REQUEST['myip6'] : '';
+}
+else {
+	# https://stackoverflow.com/questions/1448871/how-to-know-which-version-of-the-internet-protocol-ip-a-client-is-using-when-c
+	if(filter_var($source_ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+		$ip6 = $source_ip;
+	}
+	else {
+		$ip = $source_ip;
+	}
+}
+
+if(isset($_SERVER['PHP_AUTH_USER']) && isset($_SERVER['PHP_AUTH_PW'])) {
+	$username = $_SERVER['PHP_AUTH_USER'];
+	$password = $_SERVER['PHP_AUTH_PW'];
+}
+else if(isset($_REQUEST['username']) && isset($_REQUEST['password'])) {	
+	$username = $_REQUEST['username'];
+	$password = $_REQUEST['password'];
+}
+
+if(!$username && !$password) {
+	error_unauthorized();
+}
+
+validate_ip($ip, $ip6);
+$host_id = validate_host($host);
+$user_id = validate_user($username, $password);
+
+update_host_ipv4($host_id, $user_id, $source_ip, $ip);
+update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
+
+http_response_code(200);
+die('OK');
 
