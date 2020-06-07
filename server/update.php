@@ -117,6 +117,11 @@ function validate_user($username, $password) {
 	return $data[0]['id'];
 }
 
+function get_host_by_id($host_id) {
+	$data = db_query('SELECT name FROM hosts WHERE id = ?', array($host_id));
+	return $data[0]['name'];
+}
+
 function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	if(!$ip) {
 		return;
@@ -125,7 +130,7 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, ?, '')", array($host_id, $user_id, $source_ip, $ip));
 	db_query("INSERT INTO current (host, ip, ip6) VALUES (?, ?, '') ON DUPLICATE KEY UPDATE ip = ?", array($host_id, $ip, $ip));
 
-	update_bind($host_id, 'A', $ip);
+	update_bind(get_host_by_id($host_id), 'A', $ip);
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv4 = 1", array($host_id));
 	foreach($data as $row) {
@@ -141,7 +146,7 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, '', ?)", array($host_id, $user_id, $source_ip, $ip6));
 	db_query("INSERT INTO current (host, ip, ip6) VALUES (?, '', ?) ON DUPLICATE KEY UPDATE ip6 = ?", array($host_id, $ip6, $ip6));
 
-	update_bind($host_id, 'AAAA', $ip6);
+	update_bind(get_host_by_id($host_id), 'AAAA', $ip6);
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv6 = 1", array($host_id));
 	foreach($data as $row) {
@@ -149,10 +154,7 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 	}
 }
 
-function update_bind($host_id, $record, $ip) {
-	$data = db_query('SELECT name FROM hosts WHERE id = ?', array($host_id));
-	$host = $data[0]['name'];
-
+function update_bind($host, $record, $ip) {
 	$call = "#!/bin/bash\n";
 	$call .= "echo -e \"";
 	$call .= "update delete $host.ddns.rueckgr.at $record\\n";
