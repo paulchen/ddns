@@ -1,0 +1,52 @@
+# vim: set ft=sh
+
+# symlink from /lib/dhcpcd/dhcpcd-hooks (dhcpcd) or /etc/dhcp/dhclient-exit-hooks.d (dhclient)
+
+check_parameter() {
+	if [ -z "$2" ]; then
+		logger err "[ddns] Value $1 not set in /etc/ddns.conf"
+		exit 0
+	fi
+}
+
+update_ipv4() {
+	logger info "[ddns] Updating IPv4 address"
+	wget -4 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
+		logger info "[ddns] IPv4 update successful" ||
+		logger err "[ddns] Error executing IPv4 update"
+	echo ''
+}
+
+update_ipv6() {
+	logger info "[ddns] Updating IPv6 address"
+	wget -6 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
+		logger info "[ddns] IPv6 update successful" ||
+		logger err "[ddns] Error executing IPv6 update"
+	echo ''
+}
+
+logger info "[ddns] Receiving event $reason"
+
+if [ ! -f "/etc/ddns.conf" ]; then
+	logger err "[ddns] /etc/ddns.conf not found, not doing anything"
+	exit 0
+fi
+
+. "/etc/ddns.conf"
+
+check_parameter DDNS_USERNAME "$DDNS_USERNAME"
+check_parameter DDNS_PASSWORD "$DDNS_PASSWORD"
+check_parameter DDNS_HOSTNAME "$DDNS_HOSTNAME"
+check_parameter DDNS_ENDPOINT "$DDNS_ENDPOINT"
+
+URL="$DDNS_ENDPOINT/update.php?system=custom&hostname=$DDNS_HOSTNAME"
+
+case "$reason" in
+BOUND|RENEW|REBIND|REBOOT|INFORM)
+	update_ipv4
+	ping -6 -c 1 google.at > /dev/null 2>&1 && update_ipv6
+	;;
+BOUND6|RENEW6|REBIND6|REBOOT6|INFORM6)
+	update_ipv6
+	;;
+esac
