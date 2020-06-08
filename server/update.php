@@ -39,7 +39,7 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 
 	$host = get_host_by_id($host_id);
 	syslog(LOG_INFO, "DDNS update of host $host record A to $ip");
-	update_bind($host, 'A', $ip6);
+	update_bind($host, 'A', $ip);
 
 	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv4 = 1", array($host_id));
 	foreach($data as $row) {
