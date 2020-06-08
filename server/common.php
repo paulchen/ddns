@@ -86,8 +86,12 @@ function validate_ip($ip, $ip6) {
 	return validate_ipv4($ip) && validate_ipv6($ip6);
 }
 
-function validate_user($username, $password) {
-	$data = db_query('SELECT id, password FROM accounts WHERE username = ? AND active = 1', array($username));
+function validate_user($username, $password, $host_id) {
+	$data = db_query('SELECT a.id id, a.password password
+			FROM accounts a
+				JOIN accounts_hosts ah ON (a.id = ah.account AND ah.host = ?)
+			WHERE username = ?
+				AND active = 1', array($host_id, $username));
 	if(count($data) != 1 || !password_verify($password, $data[0]['password'])) {
 		error_unauthorized();
 	}

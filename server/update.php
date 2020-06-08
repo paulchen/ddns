@@ -41,7 +41,11 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	syslog(LOG_INFO, "DDNS update of host $host record A to $ip");
 	update_bind($host, 'A', $ip);
 
-	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv4 = 1", array($host_id));
+	$data = db_query("SELECT ud.to `to`
+		FROM update_dependency ud
+			JOIN accounts_hosts ah ON (ud.to = ah.host AND ah.account = ?)
+		WHERE `from` = ?
+			AND ipv4 = 1", array($user_id, $host_id));
 	foreach($data as $row) {
 		update_host_ipv4($row['to'], $user_id, $source_ip, $ip);
 	}
@@ -59,7 +63,11 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 	syslog(LOG_INFO, "DDNS update of host $host record AAAA to $ip6");
 	update_bind($host, 'AAAA', $ip6);
 
-	$data = db_query("SELECT `to` FROM update_dependency WHERE `from` = ? AND ipv6 = 1", array($host_id));
+	$data = db_query("SELECT ud.to `to`
+		FROM update_dependency ud
+			JOIN accounts_hosts ah ON (ud.to = ah.host AND ah.account = ?)
+		WHERE `from` = ?
+			AND ipv6 = 1", array($user_id, $host_id));
 	foreach($data as $row) {
 		update_host_ipv4($data['to'], $user_id, $source_ip, $ip6);
 	}
@@ -110,7 +118,7 @@ if (!($host_id = validate_host($host))) {
 	syslog(LOG_DEBUG, "Invalid host in DDNS request");
 	error_bad_request();
 }
-if (!($user_id = validate_user($username, $password))) {
+if (!($user_id = validate_user($username, $password, $host_id))) {
 	syslog(LOG_DEBUG, "DDNS request unauthorized");
 	error_unauthorized();
 }
