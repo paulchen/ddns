@@ -22,31 +22,43 @@ if [ "$NAMESERVER" == "" ]; then
   echo "/etc/ddns.conf not configured properly"
   exit 1
 fi
+ENDPOINT=`grep DDNS_ENDPOINT /etc/ddns.conf 2>/dev/null | sed -e 's/^.*=//'`
+if [ "$ENDPOINT" == "" ]; then
+  echo "/etc/ddns.conf not configured properly"
+  exit 1
+fi
 
-DEVICE=`ip -j -6 route | jq -r 'map(select(.dst == "default").dev) | flatten | .[]'`
-if [ "$DEVICE" == "" ]; then
-  echo "No default route for IPv6 found"
-  exit 1
-fi
-WHITESPACES=`echo "$DEVICE" | grep -c ' '`
+
+CURRENT=`dig +short -t A "$HOSTNAME.$DOMAIN" "@$NAMESERVER"`
+WHITESPACES=`echo "$CURRENT" | grep -c ' '`
 if [ "$WHITESPACES" -ne "0" ]; then
-  echo "Multiple default routes found"
+  echo "Multiple IPv4 addresses found via nameserver"
   exit 1
 fi
+
+EXPECTED=`wget -4 -q -O - $ENDPOINT/ip.php`
+if [ "$EXPECTED" == "" ]; then
+  echo "Unable to determine public IPv4 address"
+  exit 1
+elif [ "$CURRENT" != "$EXPECTED" ]; then
+  echo "Update of IPv4 address required"
+  reason=MANUAL bash "$DIRECTORY/dhcpcd-hook"
+fi
+
 
 CURRENT=`dig +short -t AAAA "$HOSTNAME.$DOMAIN" "@$NAMESERVER"`
-EXPECTED=`ip -j -6 addr show "$DEVICE" scope global | jq -r 'map(.addr_info) | map(map(select(.family == "inet6").local)) | flatten | .[]'`
+WHITESPACES=`echo "$CURRENT" | grep -c ' '`
+if [ "$WHITESPACES" -ne "0" ]; then
+  echo "Multiple IPv6 addresses found via nameserver"
+  exit 1
+fi
 
-FOUND=0
-for IP in $EXPECTED; do
-  if [ "$IP" == "$CURRENT" ]; then
-    FOUND=1
-    break
-  fi
-done
-
-if [ "$FOUND" -ne "1" ]; then
-  echo "Update required"
+EXPECTED=`wget -6 -q -O - $ENDPOINT/ip.php`
+if [ "$EXPECTED" == "" ]; then
+  echo "Unable to determine public IPv6 address"
+  exit 1
+elif [ "$CURRENT" != "$EXPECTED" ]; then
+  echo "Update of IPv6 address required"
   reason=MANUAL6 bash "$DIRECTORY/dhcpcd-hook"
 fi
 
