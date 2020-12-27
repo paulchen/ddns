@@ -42,11 +42,11 @@ check_parameter DDNS_ENDPOINT "$DDNS_ENDPOINT"
 URL="$DDNS_ENDPOINT/update.php?system=custom&hostname=$DDNS_HOSTNAME"
 
 case "$reason" in
-BOUND|RENEW|REBIND|REBOOT|INFORM)
+BOUND|RENEW|REBIND|REBOOT|INFORM|MANUAL)
 	update_ipv4
 	ping -6 -c 1 google.at > /dev/null 2>&1 && update_ipv6
 	;;
-BOUND6|RENEW6|REBIND6|REBOOT6|INFORM6)
+BOUND6|RENEW6|REBIND6|REBOOT6|INFORM6|MANUAL6)
 	update_ipv6
 	;;
 esac
