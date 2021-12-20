@@ -39,6 +39,8 @@ fi
 
 log "/etc/ddns.conf seems to be set up correctly"
 
+ERROR=0
+
 CURRENT=`dig +short -t A "$HOSTNAME.$DOMAIN" "@$NAMESERVER"`
 WHITESPACES=`echo "$CURRENT" | grep -c ' '`
 if [ "$WHITESPACES" -ne "0" ]; then
@@ -52,9 +54,13 @@ if [ "$EXPECTED" == "" ]; then
   exit 1
 elif [ "$CURRENT" != "$EXPECTED" ]; then
   log "Update of IPv4 address required"
-  reason=MANUAL bash "$DIRECTORY/dhcpcd-hook"
+  reason=MANUAL bash "$DIRECTORY/dhcpcd-hook" || ERROR=1
 fi
 
+if [ "$ERROR" -ne "0" ]; then
+  log "IPv4 update failed"
+  exit 1
+fi
 
 CURRENT=`dig +short -t AAAA "$HOSTNAME.$DOMAIN" "@$NAMESERVER"`
 WHITESPACES=`echo "$CURRENT" | grep -c ' '`
@@ -69,7 +75,12 @@ if [ "$EXPECTED" == "" ]; then
   exit 1
 elif [ "$CURRENT" != "$EXPECTED" ]; then
   log "Update of IPv6 address required"
-  reason=MANUAL6 bash "$DIRECTORY/dhcpcd-hook"
+  reason=MANUAL6 bash "$DIRECTORY/dhcpcd-hook" || ERROR=1
+fi
+
+if [ "$ERROR" -ne "0" ]; then
+  log "IPv6 update failed"
+  exit 1
 fi
 
 log "Execution of DDNS check script completed"

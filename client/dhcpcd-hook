@@ -10,19 +10,29 @@ check_parameter() {
 }
 
 update_ipv4() {
+	ERROR=0
 	logger info "[ddns] Updating IPv4 address"
-	wget -4 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
-		logger info "[ddns] IPv4 update successful" ||
+	wget -4 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null || ERROR=1
+	if [ "$ERROR" -eq "0" ]; then
+		logger info "[ddns] IPv4 update successful"
+	else
 		logger err "[ddns] Error executing IPv4 update"
+	fi
 	echo ''
+	return $ERROR
 }
 
 update_ipv6() {
+	ERROR=0
 	logger info "[ddns] Updating IPv6 address"
-	wget -6 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q &&
-		logger info "[ddns] IPv6 update successful" ||
-		logger err "[ddns] Error executing IPv6 update"
+	wget -6 "$URL" --user "$DDNS_USERNAME" --password "$DDNS_PASSWORD" -O /dev/null -q || ERROR=1
+	if [ "$ERROR" -eq "0" ]; then
+		logger info "[ddns] IPv4 update successful"
+	else
+		logger err "[ddns] Error executing IPv4 update"
+	fi
 	echo ''
+	return $ERROR
 }
 
 logger info "[ddns] Receiving event $reason"
@@ -43,10 +53,10 @@ URL="$DDNS_ENDPOINT/update.php?system=custom&hostname=$DDNS_HOSTNAME"
 
 case "$reason" in
 BOUND|RENEW|REBIND|REBOOT|INFORM|MANUAL)
-	update_ipv4
+	update_ipv4 || exit 1
 	ping -6 -c 1 google.at > /dev/null 2>&1 && update_ipv6
 	;;
 BOUND6|RENEW6|REBIND6|REBOOT6|INFORM6|MANUAL6)
-	update_ipv6
+	update_ipv6 || exit 1
 	;;
 esac
