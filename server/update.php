@@ -31,7 +31,7 @@ function get_host_by_id($host_id) {
 
 function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 	if(!$ip) {
-		return;
+		return true;
 	}
 
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, ?, '')", array($host_id, $user_id, $source_ip, $ip));
@@ -39,7 +39,9 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 
 	$host = get_host_by_id($host_id);
 	syslog(LOG_INFO, "DDNS update of host $host record A to $ip");
-	update_bind($host, 'A', $ip);
+	if(!update_bind($host, 'A', $ip)) {
+		return false;
+	}
 
 	$data = db_query("SELECT ud.to `to`
 		FROM update_dependency ud
@@ -47,13 +49,17 @@ function update_host_ipv4($host_id, $user_id, $source_ip, $ip) {
 		WHERE `from` = ?
 			AND ipv4 = 1", array($user_id, $host_id));
 	foreach($data as $row) {
-		update_host_ipv4($row['to'], $user_id, $source_ip, $ip);
+		if(!update_host_ipv4($row['to'], $user_id, $source_ip, $ip)) {
+			return false;
+		}
 	}
+
+	return true;
 }
 
 function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 	if(!$ip6) {
-		return;
+		return true;
 	}
 
 	db_query("INSERT INTO updates (host, user, source_ip, new_ip, new_ip6) VALUES (?, ?, ?, '', ?)", array($host_id, $user_id, $source_ip, $ip6));
@@ -61,7 +67,9 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 
 	$host = get_host_by_id($host_id);
 	syslog(LOG_INFO, "DDNS update of host $host record AAAA to $ip6");
-	update_bind($host, 'AAAA', $ip6);
+	if(!update_bind($host, 'AAAA', $ip6)) {
+		return false;
+	}
 
 	$data = db_query("SELECT ud.to `to`
 		FROM update_dependency ud
@@ -69,8 +77,12 @@ function update_host_ipv6($host_id, $user_id, $source_ip, $ip6) {
 		WHERE `from` = ?
 			AND ipv6 = 1", array($user_id, $host_id));
 	foreach($data as $row) {
-		update_host_ipv4($data['to'], $user_id, $source_ip, $ip6);
+		if(!update_host_ipv6($data['to'], $user_id, $source_ip, $ip6)) {
+			return false;
+		}
 	}
+
+	return true;
 }
 
 $source_ip = $_SERVER['REMOTE_ADDR'];
@@ -123,8 +135,14 @@ if (!($user_id = validate_user($username, $password, $host_id))) {
 	error_unauthorized();
 }
 
-update_host_ipv4($host_id, $user_id, $source_ip, $ip);
-update_host_ipv6($host_id, $user_id, $source_ip, $ip6);
+if(!update_host_ipv4($host_id, $user_id, $source_ip, $ip)) {
+	syslog(LOG_DEBUG, "IPv4 update failed");
+	error_internal();
+}
+if(!update_host_ipv6($host_id, $user_id, $source_ip, $ip6)) {
+	syslog(LOG_DEBUG, "IPv6 update failed");
+	error_internal();
+}
 
 syslog(LOG_DEBUG, "DDNS request successfully processed");
 

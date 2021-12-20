@@ -42,7 +42,9 @@ switch($record) {
 		usage("Invalid record type");
 }
 
-update_bind($host, $record, $ip);
-
+if(!update_bind($host, $record, $ip)) {
+	echo "Update failed\n";
+	die(1);
+}
 echo "Update successful\n";
 

@@ -103,12 +103,18 @@ function update_bind($host, $record, $ip) {
 	$call .= "echo -e \"";
 	$call .= "update delete $host.ddns.rueckgr.at $record\\n";
 	$call .= "update add $host.ddns.rueckgr.at 60 $record $ip\\n";
-	$call .= "send\"|nsupdate\n";
+	$call .= "send\"|nsupdate 2>&1 \n";
 	$filename = tempnam('/tmp','nsupdate_');
 	file_put_contents($filename, $call);
 	chmod($filename, 0700);
-	exec($filename);
+	$output = '';
+	$return_code = 0;
+	exec($filename, $output, $return_code);
 	unlink($filename);
+	$complete_output = implode("\n", $output);
+	syslog(LOG_INFO, "Return code from nsupdate: $return_code; output: $complete_output");
+
+	return $return_code == 0;
 }
 
 require_once(dirname(__FILE__) . '/config.php');
